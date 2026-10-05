@@ -1,5 +1,8 @@
 # oarfish
 
+<p align="center"><img src="docs/oarfish.jpg" alt="Hand-coloured plate of an oarfish, Gymnetrus gladius" width="720"></p>
+<p align="center"><sub><i>Le Gymnètre épée</i> (<i>Gymnetrus gladius</i>), Acarie Baron del., Sebin sc. Cuvier, <i>Le Règne Animal</i>, Poissons pl. 69.</sub></p>
+
 Viral genome annotation utilities from the Quantitative Virology and Evolution Unit.
 
 ## Polyprotein → mature proteins: `polyprotein_peptides.py`
