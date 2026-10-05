@@ -142,5 +142,48 @@ def test_all():
               [t for t in truth if t[0] == "YP_009724389.1"])
     print(f"OK: {len(truth)} mature proteins across plus-strand, frameshifted and minus-strand polyproteins")
 
+NODE_SCRIPT = r"""
+const P = require(process.argv[1]);
+const fs = require("fs");
+const [gff, fa, prot, acc] = process.argv.slice(2);
+const warn = w => process.stderr.write(w + "\n");
+(async () => {
+  const a = await P.run({ gff3Text: fs.readFileSync(gff, "utf8"), genomeFastaText: fs.readFileSync(fa, "utf8"), warn });
+  const b = await P.run({ gff3Text: fs.readFileSync(gff, "utf8"), proteinFastaText: fs.readFileSync(prot, "utf8"), accession: acc, warn });
+  process.stdout.write(P.toTsv(a.records) + "\0" + P.toTsv(b.records) + "\0" + P.toFasta(a.records));
+})().catch(e => { console.error(e); process.exit(1); });
+"""
+
+def test_web_core_matches_python():
+    '''docs/polyprotein.js (the GitHub Pages version) gives the same output as the Python script.'''
+    import shutil
+    if not shutil.which("node"):
+        print("SKIP: node not installed; web core not tested")
+        return
+    rng = random.Random(1)
+    seqid, genome, gff, prots, truth = build(rng)
+    with tempfile.TemporaryDirectory() as tmp:
+        files = {"g.gff3": gff, "g.fasta": f">{seqid}\n{genome}\n", "p.faa": "".join(f">{k}\n{v}\n" for k, v in prots.items())}
+        for name, text in files.items():
+            with open(os.path.join(tmp, name), "w") as fh:
+                fh.write(text)
+        js = subprocess.run(["node", "-e", NODE_SCRIPT, os.path.join(HERE, "..", "docs", "polyprotein.js"),
+                             *(os.path.join(tmp, n) for n in files), "YP_009724389"],
+                            check=True, capture_output=True, text=True).stdout.split("\0")
+        out = os.path.join(tmp, "py")
+        script = os.path.join(HERE, "..", "polyprotein_peptides.py")
+        subprocess.run([sys.executable, script, "--gff3", os.path.join(tmp, "g.gff3"), "--genome-fasta", os.path.join(tmp, "g.fasta"), "-o", out],
+                       check=True, capture_output=True)
+        with open(out + ".tsv") as fh:
+            assert js[0] == fh.read(), "JS and Python TSV differ (genome FASTA route)"
+        with open(out + ".faa") as fh:
+            assert js[2] == fh.read(), "JS and Python FASTA differ"
+        subprocess.run([sys.executable, script, "YP_009724389", "--gff3", os.path.join(tmp, "g.gff3"),
+                        "--protein-fasta", os.path.join(tmp, "p.faa"), "-o", out], check=True, capture_output=True)
+        with open(out + ".tsv") as fh:
+            assert js[1] == fh.read(), "JS and Python TSV differ (protein FASTA + accession filter)"
+    print("OK: docs/polyprotein.js output matches polyprotein_peptides.py")
+
 if __name__ == "__main__":
     test_all()
+    test_web_core_matches_python()

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Polyprotein Splitter · oarfish</title>
+  <meta name="description" content="Split a viral polyprotein into its mature proteins using the NCBI GFF3 annotation.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <p class="brand">oarfish</p>
+      <h1>Polyprotein → mature proteins</h1>
+      <p class="lede">Enter an NCBI accession for a viral genome or polyprotein. The page reads the GFF3 annotation and returns the protein sequence of every mature protein region, mapped through the coding sequence (frameshifts included). Everything runs in your browser.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card" aria-label="Input">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-ncbi" aria-selected="true" aria-controls="panel-ncbi">NCBI accession</button>
+        <button role="tab" id="tab-local" aria-selected="false" aria-controls="panel-local">Local files</button>
+      </div>
+
+      <form id="panel-ncbi" role="tabpanel" aria-labelledby="tab-ncbi">
+        <label for="acc">Genome or polyprotein accession</label>
+        <div class="row">
+          <input id="acc" name="acc" placeholder="e.g. NC_045512.2 or YP_009724389.1" autocomplete="off" spellcheck="false" required>
+          <button type="submit" class="primary">Get mature proteins</button>
+        </div>
+        <div class="examples">
+          <span>Examples:</span>
+          <button type="button" data-acc="NC_045512.2">SARS-CoV-2 genome</button>
+          <button type="button" data-acc="YP_009724389.1">SARS-CoV-2 pp1ab</button>
+          <button type="button" data-acc="NC_002058.3">Poliovirus 1</button>
+          <button type="button" data-acc="NC_002031.1">Yellow fever virus</button>
+        </div>
+        <details>
+          <summary>NCBI API key (optional)</summary>
+          <p class="hint">Raises NCBI's rate limit from 3 to 10 requests per second. Stored only in this browser.</p>
+          <input id="apikey" type="password" autocomplete="off" placeholder="NCBI API key">
+        </details>
+      </form>
+
+      <form id="panel-local" role="tabpanel" aria-labelledby="tab-local" hidden>
+        <div class="grid">
+          <label>GFF3 annotation <span class="req">required</span>
+            <input type="file" id="gffFile" accept=".gff,.gff3,.txt">
+          </label>
+          <label>Polyprotein FASTA <span class="opt">headers = CDS protein_id</span>
+            <input type="file" id="protFile" accept=".fa,.faa,.fasta,.txt">
+          </label>
+          <label>…or genome FASTA <span class="opt">CDS are translated</span>
+            <input type="file" id="genomeFile" accept=".fa,.fna,.fasta,.txt">
+          </label>
+          <label>Only this polyprotein <span class="opt">optional</span>
+            <input id="localAcc" placeholder="e.g. YP_009724389.1" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+        <p class="hint">With a GFF3 but no FASTA, polyprotein sequences are downloaded from NCBI.</p>
+        <button type="submit" class="primary">Get mature proteins</button>
+      </form>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+    <ul id="warnings" class="warnings" hidden></ul>
+
+    <section id="results" hidden aria-label="Results">
+      <div class="results-head">
+        <div>
+          <h2 id="resTitle">Mature proteins</h2>
+          <p id="resSummary" class="muted"></p>
+        </div>
+        <div class="actions">
+          <button type="button" id="dlFasta">FASTA</button>
+          <button type="button" id="dlTsv">TSV</button>
+          <button type="button" id="dlGff">GFF3</button>
+          <button type="button" id="copyFasta">Copy FASTA</button>
+        </div>
+      </div>
+      <div id="polyFilter" class="chips" role="group" aria-label="Filter by polyprotein"></div>
+      <div id="maps"></div>
+      <div class="table-wrap">
+        <table id="table">
+          <thead>
+            <tr><th>Product</th><th>Polyprotein</th><th class="num">aa</th><th class="num">Length</th><th>Mature protein</th><th>Genomic region</th><th>Sequence</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap muted">
+    <p>Command-line version: <code>polyprotein_peptides.py</code> in <a href="https://github.com/QVEU/oarfish">QVEU/oarfish</a>. Data from <a href="https://www.ncbi.nlm.nih.gov/books/NBK25501/">NCBI E-utilities</a>.</p>
+  </footer>
+
+  <script src="polyprotein.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
