@@ -1,5 +1,8 @@
 # oarfish
 
+<p align="center"><img src="docs/oarfish.jpg" alt="Hand-coloured plate of an oarfish, Gymnetrus gladius" width="720"></p>
+<p align="center"><sub><i>Le Gymnètre épée</i> (<i>Gymnetrus gladius</i>), Acarie Baron del., Sebin sc. Cuvier, <i>Le Règne Animal</i>, Poissons pl. 69.</sub></p>
+
 Viral genome annotation utilities from the Quantitative Virology and Evolution Unit.
 
 ## Polyprotein → mature proteins: `polyprotein_peptides.py`
@@ -22,6 +25,6 @@ Test: `python tests/test_polyprotein_peptides.py`
 ## Web interface (GitHub Pages)
 `docs/` is a static site that runs the same steps in the browser. Enter an accession, or upload a GFF3 plus a protein or genome FASTA. It draws a map of each polyprotein and shows a table of mature proteins, with FASTA/TSV/GFF3 downloads. `?acc=NC_045512.2` in the URL runs that accession directly.
 
-To publish: in the repo's **Settings → Pages**, set **Source: Deploy from a branch**, branch `main`, folder `/docs`. To try it locally, open `docs/index.html` in a browser.
+Publishing is done by `.github/workflows/static.yml`, which uploads `docs/` as the site root. In the repo's **Settings → Pages**, set **Source: GitHub Actions**. To try it locally, open `docs/index.html` in a browser.
 
 The parsing and mapping logic in `docs/polyprotein.js` mirrors `polyprotein_peptides.py`. The test checks that both give identical output (needs `node`).

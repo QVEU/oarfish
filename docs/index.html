@@ -5,13 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Polyprotein Splitter · oarfish</title>
   <meta name="description" content="Split a viral polyprotein into its mature proteins using the NCBI GFF3 annotation.">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="top">
     <div class="wrap">
-      <p class="brand">oarfish</p>
-      <h1>Polyprotein → mature proteins</h1>
+      <div class="title">
+        <img class="logo" src="icon.png" alt="" width="64" height="64">
+        <div>
+          <p class="brand">oarfish</p>
+          <h1>Polyprotein → mature proteins</h1>
+        </div>
+      </div>
       <p class="lede">Enter an NCBI accession for a viral genome or polyprotein. The page reads the GFF3 annotation and returns the protein sequence of every mature protein region, mapped through the coding sequence (frameshifts included). Everything runs in your browser.</p>
     </div>
   </header>
@@ -94,6 +102,7 @@
 
   <footer class="wrap muted">
     <p>Command-line version: <code>polyprotein_peptides.py</code> in <a href="https://github.com/QVEU/oarfish">QVEU/oarfish</a>. Data from <a href="https://www.ncbi.nlm.nih.gov/books/NBK25501/">NCBI E-utilities</a>.</p>
+    <p>Icon: <i>Le Gymnètre épée</i> (<i>Gymnetrus gladius</i>), Acarie Baron del., Sebin sc., Cuvier's <i>Règne Animal</i>, Poissons pl. 69.</p>
   </footer>
 
   <script src="polyprotein.js"></script>
