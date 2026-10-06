@@ -2,7 +2,13 @@
 '''
 polyprotein_peptides.py
 v1.0
-  ><```º>
+
+oarfish
+
+    ><IIIII\\
+ //IIIIIIIII/
+ \IIIIº>
+
 Patrick T. Dolan
 Unit Chief, Quantitative Virology and Evolution Unit
 
