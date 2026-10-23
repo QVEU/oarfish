@@ -25,8 +25,8 @@ Genomic coordinates are mapped through the spliced CDS, so ribosomal frameshifts
 Test: `python tests/test_polyprotein_peptides.py`
 
 ## Web interface (GitHub Pages)
-`docs/` is a static site that runs the same steps in the browser. Enter an accession, or upload a GFF3 plus a protein or genome FASTA. It draws a map of each polyprotein and shows a table of mature proteins, with protein FASTA, DNA FASTA, TSV and GFF3 downloads. The DNA FASTA downloads the genome from NCBI on first use, unless you uploaded a genome FASTA. `?acc=NC_045512.2` in the URL runs that accession directly.
+`index.html` (with its scripts, styles and icons in `docs/`) is a static site that runs the same steps in the browser. Enter an accession, or upload a GFF3 plus a protein or genome FASTA. It draws a map of each polyprotein and shows a table of mature proteins, with protein FASTA, DNA FASTA, TSV and GFF3 downloads. The DNA FASTA downloads the genome from NCBI on first use, unless you uploaded a genome FASTA. `?acc=NC_045512.2` in the URL runs that accession directly.
 
-Publishing is done by `.github/workflows/static.yml`, which uploads `docs/` as the site root. In the repo's **Settings → Pages**, set **Source: GitHub Actions**. To try it locally, open `docs/index.html` in a browser.
+Publishing is done by `.github/workflows/static.yml` on pushes to `main`. In the repo's **Settings → Pages**, set **Source: GitHub Actions**, and allow `main` under **Settings → Environments → github-pages → Deployment branches**. Because `index.html` is at the top level, **Deploy from a branch** (`main`, `/ (root)`) also works. To try it locally, open `index.html` in a browser.
 
 The parsing and mapping logic in `docs/polyprotein.js` mirrors `polyprotein_peptides.py`. The test checks that both give identical output (needs `node`).
