@@ -48,8 +48,10 @@
   }
 
   const fetchGff3 = (nucId, apiKey) => eutils("efetch.fcgi", { db: "nuccore", id: nucId, rettype: "gff3", retmode: "text" }, apiKey);
-  const fetchProteinFasta = async (ids, apiKey) =>
-    parseFasta(await eutils("efetch.fcgi", { db: "protein", id: ids.join(","), rettype: "fasta", retmode: "text" }, apiKey));
+  const fetchFasta = async (db, ids, apiKey) =>
+    parseFasta(await eutils("efetch.fcgi", { db, id: ids.join(","), rettype: "fasta", retmode: "text" }, apiKey));
+  const fetchProteinFasta = (ids, apiKey) => fetchFasta("protein", ids, apiKey);
+  const fetchNuccoreFasta = (ids, apiKey) => fetchFasta("nuccore", ids, apiKey);
 
   // ---------- Parsing ----------
   function parseFasta(text) {
@@ -177,6 +179,15 @@
     return prot.endsWith("*") ? prot.slice(0, -1) : prot;
   }
 
+  // ---------- Nucleotide sequence of a region ----------
+  function regionNt(feat, genome) {
+    // Spliced, strand-aware nucleotides (segments joined in transcript order, as in the CDS). null if missing.
+    let seq = genome[feat.seqid] || genome[feat.seqid.split(".")[0]];
+    if (seq === undefined) return null;
+    seq = seq.toUpperCase();
+    return feat.segs.map(([s, e]) => (feat.strand !== "-" ? seq.slice(s - 1, e) : revcomp(seq.slice(s - 1, e)))).join("");
+  }
+
   // ---------- Assembly ----------
   const regionString = f => `${f.seqid}:${f.segs.map(([s, e]) => `${s}..${e}`).join(",")}(${f.strand})`;
 
@@ -214,19 +225,35 @@
       out.push({
         poly: r.poly, product: a.product || a.Name || a.ID || "", matureId: a.protein_id || "",
         aaStart: r.aaStart, aaEnd: r.aaEnd, length: seq.length, region: regionString(r.mat), sequence: seq, polyLength: prot.length,
+        seqid: r.mat.seqid, strand: r.mat.strand, segs: r.mat.segs,
       });
     }
     return out;
   }
 
+  function header(r) {
+    let h = `>${r.poly}|${r.product.replace(/ /g, "_")}|${r.aaStart}-${r.aaEnd}`;
+    if (r.matureId) h += ` mature_id=${r.matureId}`;
+    return h + ` region=${r.region}`;
+  }
+
+  function wrap(seq) {
+    const lines = [];
+    for (let i = 0; i < seq.length; i += 60) lines.push(seq.slice(i, i + 60));
+    return lines.join("\n");
+  }
+
   function toFasta(records) {
+    return records.map(r => header(r) + "\n" + wrap(r.sequence) + "\n").join("");
+  }
+
+  function toDnaFasta(records, genome, warn) {
+    // Nucleotide FASTA of each region, same headers as toFasta
+    warn = warn || (() => {});
     return records.map(r => {
-      let h = `>${r.poly}|${r.product.replace(/ /g, "_")}|${r.aaStart}-${r.aaEnd}`;
-      if (r.matureId) h += ` mature_id=${r.matureId}`;
-      h += ` region=${r.region}`;
-      const lines = [];
-      for (let i = 0; i < r.sequence.length; i += 60) lines.push(r.sequence.slice(i, i + 60));
-      return h + "\n" + lines.join("\n") + "\n";
+      const nt = regionNt(r, genome);
+      if (nt === null) { warn(`sequence ${r.seqid} not in the genome FASTA; no DNA for ${r.product}`); return ""; }
+      return header(r) + "\n" + wrap(nt) + "\n";
     }).join("");
   }
 
@@ -262,13 +289,13 @@
       progress(`Downloading ${polyIds.length} polyprotein sequence(s)…`);
       prots = await fetchProteinFasta(polyIds, opts.apiKey);
     }
-    return { records: attachSequences(rows, prots, warn), gff3: gff };
+    return { records: attachSequences(rows, prots, warn), gff3: gff, genome: opts.genomeFastaText ? parseFasta(opts.genomeFastaText) : null };
   }
 
   const api = {
     revcomp, isProteinAccession, parseFasta, parseAttrs, parseGff3, positions, proteinRange, findParent,
-    codonTable, translateCds, regionString, matureRegions, attachSequences, toFasta, toTsv, run,
-    nuccoreForProtein, fetchGff3, fetchProteinFasta,
+    codonTable, translateCds, regionString, regionNt, matureRegions, attachSequences, toFasta, toDnaFasta, toTsv, run,
+    nuccoreForProtein, fetchGff3, fetchProteinFasta, fetchNuccoreFasta,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Polyprotein = api;

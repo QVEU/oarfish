@@ -11,19 +11,21 @@ Give an NCBI accession for a viral genome (e.g. `NC_001612.1`) or a polyprotein 
 ```
 python polyprotein_peptides.py NC_001612.1 -o out/genome           # every polyprotein in the genome
 python polyprotein_peptides.py NP_041277.1 -o out/pp               # just that polyprotein
-python polyprotein_peptides.py NC_045512.2                        # FASTA to stdout
+python polyprotein_peptides.py NC_045512.2                        # protein FASTA to stdout
+python polyprotein_peptides.py NC_045512.2 --dna                  # nucleotide FASTA to stdout
 ```
 
 Outputs:
 - `out/X.faa`: one record per mature protein, `>polyprotein_id|product|aaStart-aaEnd mature_id=... region=seqid:start..end(strand)`.
 - `out/X.tsv`: `polyprotein_id, product, mature_protein_id, aa_start, aa_end, length, genomic_region, sequence`.
+- `out/X.fna`: the nucleotide sequence of each region, with the same headers as `X.faa`. Regions are read strand-aware from the genome, with join segments concatenated in order, so a frameshifted region is its coding sequence. The genome comes from `--genome-fasta` or NCBI. With `--gff3` and no `--genome-fasta`, no `.fna` is written.
 
 Genomic coordinates are mapped through the spliced CDS, so ribosomal frameshifts (e.g. coronavirus pp1ab/nsp12) map correctly. A mature protein shared by pp1a and pp1ab is listed under each. Polyprotein sequences come from NCBI's protein records. Offline, use `--gff3 file.gff3` with either `--protein-fasta polyproteins.faa` (headers = CDS `protein_id`) or `--genome-fasta genome.fasta`, which translates the CDS instead. `--keep-gff3` saves the downloaded GFF3. Set `NCBI_API_KEY` for higher rate limits.
 
 Test: `python tests/test_polyprotein_peptides.py`
 
 ## Web interface (GitHub Pages)
-`docs/` is a static site that runs the same steps in the browser. Enter an accession, or upload a GFF3 plus a protein or genome FASTA. It draws a map of each polyprotein and shows a table of mature proteins, with FASTA/TSV/GFF3 downloads. `?acc=NC_045512.2` in the URL runs that accession directly.
+`docs/` is a static site that runs the same steps in the browser. Enter an accession, or upload a GFF3 plus a protein or genome FASTA. It draws a map of each polyprotein and shows a table of mature proteins, with protein FASTA, DNA FASTA, TSV and GFF3 downloads. The DNA FASTA downloads the genome from NCBI on first use, unless you uploaded a genome FASTA. `?acc=NC_045512.2` in the URL runs that accession directly.
 
 Publishing is done by `.github/workflows/static.yml`, which uploads `docs/` as the site root. In the repo's **Settings → Pages**, set **Source: GitHub Actions**. To try it locally, open `docs/index.html` in a browser.
 

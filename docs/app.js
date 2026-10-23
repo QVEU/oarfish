@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const COLORS = ["#2a7f8a", "#c0582b", "#5a6fc4", "#b8860b", "#8b4f9e", "#3d8b3d", "#c4436b", "#6b7f1f", "#2f6db0", "#a0522d", "#4f8f7a", "#9b5f2a"];
 
-  let state = { records: [], gff3: "", label: "", filter: null };
+  let state = { records: [], gff3: "", label: "", filter: null, genome: null };
 
   // ---------- helpers ----------
   const el = (tag, attrs, ...kids) => {
@@ -77,7 +77,7 @@
     setStatus("Working…");
     try {
       const res = await P.run(Object.assign({ apiKey: $("apikey").value.trim(), warn: w => warnings.push(w), progress: m => setStatus(m) }, opts));
-      state = { records: res.records, gff3: res.gff3, label, filter: null };
+      state = { records: res.records, gff3: res.gff3, label, filter: null, genome: res.genome };
       setStatus("");
       render();
     } catch (e) {
@@ -202,6 +202,25 @@
   const current = () => (state.filter ? state.records.filter(r => r.poly === state.filter) : state.records);
   const base = () => safeName(state.filter || state.label);
   $("dlFasta").addEventListener("click", () => download(base() + "_mature.faa", P.toFasta(current()), "text/plain"));
+  $("dlDna").addEventListener("click", async ev => {
+    const btn = ev.currentTarget, warnings = [];
+    btn.disabled = true;
+    try {
+      if (!state.genome) {
+        const ids = [...new Set(state.records.map(r => r.seqid))];
+        setStatus(`Downloading genome sequence (${ids.join(", ")})…`);
+        state.genome = await P.fetchNuccoreFasta(ids, $("apikey").value.trim());
+        setStatus("");
+      }
+      const fna = P.toDnaFasta(current(), state.genome, w => warnings.push(w));
+      setWarnings(warnings);
+      if (fna) download(base() + "_mature.fna", fna, "text/plain");
+    } catch (e) {
+      setStatus(`Could not get the genome sequence (${e.message}). On the Local files tab, add a genome FASTA.`, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
   $("dlTsv").addEventListener("click", () => download(base() + "_mature.tsv", P.toTsv(current()), "text/tab-separated-values"));
   $("dlGff").addEventListener("click", () => download(safeName(state.label) + ".gff3", state.gff3, "text/plain"));
   $("copyFasta").addEventListener("click", ev => copy(P.toFasta(current()), ev.currentTarget));

@@ -136,7 +136,22 @@ def test_all():
         for cid, c in cdsById.items():
             assert pp.translateCds(c, g) == prots[c["attrs"]["protein_id"]], cid
         check(run(tmp, ["--genome-fasta", os.path.join(tmp, "g.fasta")]), truth)
+        # nucleotide FASTA: same headers as .faa, and each region's DNA translates to its mature protein
+        out = os.path.join(tmp, "out", "res")
+        faa, fna = (pp.parseFasta(open(out + ext)) for ext in (".faa", ".fna"))
+        with open(out + ".fna") as fh:
+            heads = [l for l in fh if l.startswith(">")]
+        with open(out + ".faa") as fh:
+            assert heads == [l for l in fh if l.startswith(">")], "fna and faa headers differ"
+        names = [h[1:].split()[0] for h in heads]
+        assert len(names) == len(truth)
+        for name in names:
+            nt = fna[name]
+            assert len(nt) == 3 * len(faa[name]), name
+            assert "".join(TABLE[nt[i:i + 3]] for i in range(0, len(nt), 3)) == faa[name], name
+        os.remove(out + ".fna")
         check(run(tmp, ["--protein-fasta", os.path.join(tmp, "p.faa")]), truth)
+        assert not os.path.exists(out + ".fna"), "--gff3 without --genome-fasta should not write a .fna"
         # a protein accession restricts output to that polyprotein (version-insensitive)
         check(run(tmp, ["--protein-fasta", os.path.join(tmp, "p.faa")], accession="YP_009724389"),
               [t for t in truth if t[0] == "YP_009724389.1"])
@@ -150,7 +165,7 @@ const warn = w => process.stderr.write(w + "\n");
 (async () => {
   const a = await P.run({ gff3Text: fs.readFileSync(gff, "utf8"), genomeFastaText: fs.readFileSync(fa, "utf8"), warn });
   const b = await P.run({ gff3Text: fs.readFileSync(gff, "utf8"), proteinFastaText: fs.readFileSync(prot, "utf8"), accession: acc, warn });
-  process.stdout.write(P.toTsv(a.records) + "\0" + P.toTsv(b.records) + "\0" + P.toFasta(a.records));
+  process.stdout.write(P.toTsv(a.records) + "\0" + P.toTsv(b.records) + "\0" + P.toFasta(a.records) + "\0" + P.toDnaFasta(a.records, a.genome, warn));
 })().catch(e => { console.error(e); process.exit(1); });
 """
 
@@ -178,6 +193,8 @@ def test_web_core_matches_python():
             assert js[0] == fh.read(), "JS and Python TSV differ (genome FASTA route)"
         with open(out + ".faa") as fh:
             assert js[2] == fh.read(), "JS and Python FASTA differ"
+        with open(out + ".fna") as fh:
+            assert js[3] == fh.read(), "JS and Python nucleotide FASTA differ"
         subprocess.run([sys.executable, script, "YP_009724389", "--gff3", os.path.join(tmp, "g.gff3"),
                         "--protein-fasta", os.path.join(tmp, "p.faa"), "-o", out], check=True, capture_output=True)
         with open(out + ".tsv") as fh:

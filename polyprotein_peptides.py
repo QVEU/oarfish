@@ -2,7 +2,13 @@
 '''
 polyprotein_peptides.py
 v1.0
-  ><```º>
+
+oarfish
+
+    ><IIIII\\
+ //IIIIIIIII/
+ \IIIIº>
+
 Patrick T. Dolan
 Unit Chief, Quantitative Virology and Evolution Unit
 
@@ -24,11 +30,14 @@ Output:
     <prefix>.faa   one FASTA record per mature protein:
                    >polyprotein_id|product|aaStart-aaEnd [mature_id=...] [region=seqid:start..end(strand)]
     <prefix>.tsv   the same as a table, with the sequence
+    <prefix>.fna   the nucleotide sequence of each region (same headers as .faa), from the genome
+                   (--genome-fasta, or downloaded from NCBI; skipped for --gff3 without --genome-fasta)
 
 USAGE:
     python polyprotein_peptides.py NC_001612.1 -o out/EV-A71
     python polyprotein_peptides.py NP_041277.1 -o out/EV-A71_pp     (only that polyprotein)
     python polyprotein_peptides.py --gff3 genome.gff3 --genome-fasta genome.fasta -o out/local
+    python polyprotein_peptides.py NC_045512.2 --dna > mature.fna     (nucleotide FASTA to stdout)
 Set NCBI_API_KEY (and optionally NCBI_EMAIL) for higher NCBI rate limits.
 '''
 
@@ -198,18 +207,32 @@ def translateCds(cds, genome):
     prot = "".join(table.get(nt[i:i + 3], "X") for i in range(0, len(nt) - 2, 3))
     return prot[:-1] if prot.endswith("*") else prot
 
+##### Nucleotide sequence of a region #####
+def regionNt(feat, genome):
+    '''Spliced, strand-aware nucleotides of a feature (segments joined in transcript order, so a
+    frameshift's overlapping nt appears twice, as in the CDS). None if the sequence is missing.'''
+    seq = genome.get(feat["seqid"]) or genome.get(feat["seqid"].split(".")[0])
+    if seq is None:
+        return None
+    seq = seq.upper()
+    return "".join(seq[s - 1:e] if feat["strand"] != "-" else revcomp(seq[s - 1:e]) for s, e in feat["segs"])
+
 ##### Main #####
+def wrap(seq, n=60):
+    return "\n".join(seq[i:i + n] for i in range(0, len(seq), n))
+
 def regionString(feat):
     return feat["seqid"] + ":" + ",".join(f"{s}..{e}" for s, e in feat["segs"]) + f"({feat['strand']})"
 
 def main():
     ap = argparse.ArgumentParser(description="Protein sequences of the mature proteins in a viral polyprotein, from its GFF3.")
     ap.add_argument("accession", nargs="?", help="NCBI nucleotide (genome) or protein (polyprotein) accession")
-    ap.add_argument("-o", "--out", help="output prefix (writes <prefix>.faa and <prefix>.tsv); default: FASTA to stdout")
+    ap.add_argument("-o", "--out", help="output prefix (writes <prefix>.faa, .tsv and .fna); default: protein FASTA to stdout")
     ap.add_argument("--gff3", help="local GFF3 instead of downloading it")
     ap.add_argument("--protein-fasta", help="local polyprotein FASTA (headers = CDS protein_id)")
     ap.add_argument("--genome-fasta", help="local genome FASTA; the polyprotein is translated from the CDS")
     ap.add_argument("--keep-gff3", action="store_true", help="also save the downloaded GFF3 as <prefix>.gff3")
+    ap.add_argument("--dna", action="store_true", help="without -o: print the nucleotide FASTA instead of the protein FASTA")
     args = ap.parse_args()
     if not args.accession and not args.gff3:
         ap.error("give an accession or --gff3")
@@ -247,21 +270,33 @@ def main():
 
     # 3. polyprotein sequences
     polyIds = list(dict.fromkeys(r["poly"] for r in rows))
+    genome = None
+    if args.genome_fasta:
+        with open(args.genome_fasta) as fh:
+            genome = parseFasta(fh)
     if args.protein_fasta:
         with open(args.protein_fasta) as fh:
             prots = parseFasta(fh)
-    elif args.genome_fasta:
-        with open(args.genome_fasta) as fh:
-            genome = parseFasta(fh)
+    elif genome is not None:
         prots = {r["poly"]: translateCds(r["cds"], genome) for r in rows}
     else:
         prots = fetchFasta("protein", polyIds)
 
-    # 4. write
+    # 4. genome for the nucleotide FASTA
+    wantDna = bool(args.out) or args.dna
+    if wantDna and genome is None:
+        if args.gff3 and not args.dna:
+            print("NOTE: no --genome-fasta, so no nucleotide FASTA (.fna) written", file=sys.stderr)
+            wantDna = False
+        else:
+            genome = fetchFasta("nuccore", list(dict.fromkeys(r["mat"]["seqid"] for r in rows)))
+
+    # 5. write
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    faa = open(args.out + ".faa", "w") if args.out else sys.stdout
+    faa = open(args.out + ".faa", "w") if args.out else (None if args.dna else sys.stdout)
     tsv = open(args.out + ".tsv", "w") if args.out else None
+    fna = (open(args.out + ".fna", "w") if args.out else sys.stdout) if wantDna else None
     if tsv:
         tsv.write("polyprotein_id\tproduct\tmature_protein_id\taa_start\taa_end\tlength\tgenomic_region\tsequence\n")
     for r in rows:
@@ -277,16 +312,26 @@ def main():
         pep = prot[r["aaStart"] - 1:r["aaEnd"]]
         header = f">{r['poly']}|{product.replace(' ', '_')}|{r['aaStart']}-{r['aaEnd']}"
         header += (f" mature_id={matId}" if matId else "") + f" region={regionString(r['mat'])}"
-        faa.write(header + "\n" + "\n".join(pep[i:i + 60] for i in range(0, len(pep), 60)) + "\n")
+        if faa:
+            faa.write(header + "\n" + wrap(pep) + "\n")
+        if fna:
+            nt = regionNt(r["mat"], genome)
+            if nt is None:
+                print(f"WARNING: sequence {r['mat']['seqid']} not in the genome FASTA; no DNA for {product}", file=sys.stderr)
+            else:
+                fna.write(header + "\n" + wrap(nt) + "\n")
         if tsv:
             tsv.write(f"{r['poly']}\t{product}\t{matId}\t{r['aaStart']}\t{r['aaEnd']}\t{len(pep)}\t{regionString(r['mat'])}\t{pep}\n")
     if args.out:
         faa.close()
         tsv.close()
+        if fna:
+            fna.close()
         if args.keep_gff3 and not args.gff3:
             with open(args.out + ".gff3", "w") as fh:
                 fh.write(gff)
-        print(f"{len(rows)} mature proteins from {len(polyIds)} polyprotein(s) -> {args.out}.faa, {args.out}.tsv", file=sys.stderr)
+        written = ", ".join(args.out + ext for ext in (".faa", ".tsv") + ((".fna",) if fna else ()))
+        print(f"{len(rows)} mature proteins from {len(polyIds)} polyprotein(s) -> {written}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
