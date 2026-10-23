@@ -36,8 +36,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload only the site (docs/) so index.html is at the site root
-          path: 'docs'
+          # Upload the repository: index.html is at the top level, its assets in docs/
+          path: '.'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
